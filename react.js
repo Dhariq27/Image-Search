@@ -9,8 +9,7 @@ let currentQuery = "";
 const searchInput = document.getElementById("searchInput");
 const searchBtn = document.getElementById("searchBtn");
 const imageResults = document.getElementById("imageResults");
-const darkModeToggle = document.getElementById("darkModeToggle"); // FIXED
-
+const darkModeToggle = document.getElementById("darkModeToggle");
 const loading = document.getElementById("loading");
 const message = document.getElementById("message");
 const loadMoreBtn = document.getElementById("loadMoreBtn");
@@ -59,13 +58,15 @@ function renderImages(images) {
         const likes = localStorage.getItem(`img_${img.id}_likes`);
         const downloads = localStorage.getItem(`img_${img.id}_downloads`);
 
+        const isLiked = localStorage.getItem(`img_${img.id}_liked`) === "true";
+
         card.innerHTML = `
             <img src="${img.webformatURL}" alt="${img.tags}">
             <div class="image-info">
                 <p><strong>📷 ${img.user}</strong></p>
                 <p>❤️ <span class="likes-count">${likes}</span> | 👁️ <span class="views-count">${views}</span> | ⬇️ <span class="downloads-count">${downloads}</span></p>
                 <div style="margin-top:5px;">
-                    <button class="like-btn">👍 Like</button>
+                    <button class="like-btn">${isLiked ? "👎 Unlike" : "👍 Like"}</button>
                     <button class="download-btn">⬇️ Download</button>
                 </div>
                 <a href="${img.pageURL}" target="_blank">🔗 View Original</a>
@@ -74,43 +75,60 @@ function renderImages(images) {
 
         imageResults.appendChild(card);
 
-        // ===== Increment Views when image is clicked =====
-        card.querySelector('img').addEventListener('click', () => {
+        // ===== Views (only once per session) =====
+        if (!sessionStorage.getItem(`viewed_${img.id}`)) {
             let currentViews = parseInt(localStorage.getItem(`img_${img.id}_views`));
             currentViews++;
             localStorage.setItem(`img_${img.id}_views`, currentViews);
             card.querySelector('.views-count').textContent = currentViews;
-            // Open original image
-            window.open(img.pageURL, "_blank");
-        });
+            sessionStorage.setItem(`viewed_${img.id}`, "true");
+        }
 
-        // ===== Like button =====
-        card.querySelector('.like-btn').addEventListener('click', () => {
+        // ===== Like / Unlike button =====
+        const likeBtn = card.querySelector('.like-btn');
+        likeBtn.addEventListener('click', () => {
             let currentLikes = parseInt(localStorage.getItem(`img_${img.id}_likes`));
-            currentLikes++;
-            localStorage.setItem(`img_${img.id}_likes`, currentLikes);
+            let liked = localStorage.getItem(`img_${img.id}_liked`) === "true";
+
+            if (liked) {
+                // Unlike
+                currentLikes = Math.max(0, currentLikes - 1);
+                localStorage.setItem(`img_${img.id}_likes`, currentLikes);
+                localStorage.setItem(`img_${img.id}_liked`, "false");
+                likeBtn.textContent = "👍 Like";
+            } else {
+                // Like
+                currentLikes++;
+                localStorage.setItem(`img_${img.id}_likes`, currentLikes);
+                localStorage.setItem(`img_${img.id}_liked`, "true");
+                likeBtn.textContent = "👎 Unlike";
+            }
             card.querySelector('.likes-count').textContent = currentLikes;
         });
 
-        // ===== Download button =====
-        card.querySelector('.download-btn').addEventListener('click', () => {
-        // Increment downloads counter
-        let currentDownloads = parseInt(localStorage.getItem(`img_${img.id}_downloads`));
-        currentDownloads++;
-        localStorage.setItem(`img_${img.id}_downloads`, currentDownloads);
-        card.querySelector('.downloads-count').textContent = currentDownloads;
-        // Trigger actual download
-        const link = document.createElement('a');
-        link.href = img.webformatURL;          // Pixabay image URL
-        link.download = `${img.tags}.jpg`;     // Filename to save
-        document.body.appendChild(link);       // Append to DOM
-        link.click();                          // Trigger click to download
-        document.body.removeChild(link);       // Remove link
+    
+       // ===== Increment Views when image is clicked (only once per user) =====
+        card.querySelector('img').addEventListener('click', () => {
+        // Check if this image was already viewed
+        const viewedKey = `img_${img.id}_viewed`;
+        if (!localStorage.getItem(viewedKey)) {
+        // First time view for this user
+        let currentViews = parseInt(localStorage.getItem(`img_${img.id}_views`)) || 0;
+        currentViews++;
+        localStorage.setItem(`img_${img.id}_views`, currentViews);
+        card.querySelector('.views-count').textContent = currentViews;
+
+        // Mark as viewed
+        localStorage.setItem(viewedKey, "true");
+        }
+
+        // Open original image in new tab
+        window.open(img.pageURL, "_blank");
         });
+
 
     });
 }
-
 
 // ===== Show/Hide Loading =====
 function showLoading(isLoading) {
@@ -124,6 +142,7 @@ searchBtn.addEventListener("click", () => {
         currentQuery = query;
         currentPage = 1;
         fetchImages(currentQuery, currentPage);
+        suggestionsDiv.style.display = "none"; // ✅ Hides suggestions after search
     }
 });
 
@@ -135,7 +154,7 @@ loadMoreBtn.addEventListener("click", () => {
 // ===== Dark Mode Toggle =====
 darkModeToggle.addEventListener("click", () => {
     document.body.classList.toggle("dark-mode");
-    darkModeToggle.textContent = 
+    darkModeToggle.textContent =
         document.body.classList.contains("dark-mode") ? "☀️ Light Mode" : "🌙 Dark Mode";
 });
 
