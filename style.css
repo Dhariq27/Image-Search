@@ -132,3 +132,16 @@ body.dark-mode .search-box input {
 body.dark-mode .search-box button {
     color: black; /* keep readable */
 }
+.about {
+  margin-bottom: 20px;
+  padding: 15px 20px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  font-size: 16px;
+  color: #333;
+  transition: opacity 0.3s, transform 0.3s;
+}
+body.dark-mode .about {
+  color: white;
+  background: rgba(0,0,0,0.3);
+}

@@ -177,11 +177,11 @@ searchInput.addEventListener("input", async ()=>{
 searchBtn.addEventListener("click", ()=>{
   const q = searchInput.value.trim();
   if(q){
-    isSearching = true; // disable suggestions during search
+    document.getElementById("aboutSection").style.display = "none"; // hide about
     currentQuery = q;
     currentPage = 1;
-    fetchResults(currentQuery,currentPage).then(()=>{ isSearching=false; });
-    suggestionsBox.innerHTML=''; // hide suggestions immediately
+    fetchResults(currentQuery,currentPage);
+    suggestionsBox.innerHTML=''; // hide suggestions
   }
 });
 
