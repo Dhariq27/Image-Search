@@ -12,7 +12,7 @@ const GIPHY_URL = "https://api.giphy.com/v1/gifs/search";
 let currentPage = 1;
 let currentQuery = "";
 let currentAPI = "all";
-let isSearching = false; // to control suggestions
+let isSearching = false;
 
 // ===== DOM Elements =====
 const searchInput = document.getElementById("searchInput");
@@ -23,6 +23,17 @@ const imageResults = document.getElementById("imageResults");
 const loading = document.getElementById("loading");
 const suggestionsBox = document.getElementById("suggestions");
 const loadMoreBtn = document.getElementById("loadMoreBtn");
+
+// ===== Helper: Unique Views =====
+function handleView(id, viewElement){
+  const key = `viewed_${id}`;
+  if(!localStorage.getItem(key)){
+    let count = parseInt(viewElement.textContent) || 0;
+    count++;
+    viewElement.textContent = count;
+    localStorage.setItem(key, "true");
+  }
+}
 
 // ===== Fetch Functions =====
 async function fetchPixabay(query, page=1){
@@ -41,19 +52,23 @@ async function fetchGiphy(query, page=0){
 // ===== Render Functions =====
 function renderPixabay(images){
   images.forEach(img=>{
-    const card = document.createElement("div"); 
+    const card = document.createElement("div");
     card.classList.add("image-card");
+    const viewId = `views-${img.id}`;
     card.innerHTML = `
       <img src="${img.webformatURL}" alt="${img.tags}">
       <div class="image-info">
         <p>📷 ${img.user}</p>
         <p>${img.tags}</p>
-        <p>👁️ ${img.views} views</p>
+        <p>👁️ <span id="${viewId}">0</span> views</p>
       </div>
       <div class="card-actions">
         <button onclick="downloadFile('${img.largeImageURL}')">⬇️ Download</button>
         <button onclick="toggleLike(this)">❤️ Like</button>
       </div>`;
+    card.querySelector("img").addEventListener("click", ()=>{
+      handleView(img.id, document.getElementById(viewId));
+    });
     imageResults.appendChild(card);
   });
 }
@@ -63,17 +78,21 @@ function renderPexels(videos){
     const videoFile = video.video_files.find(v=>v.quality==='sd')||video.video_files[0];
     const card = document.createElement("div");
     card.classList.add("image-card");
+    const viewId = `views-${video.id}`;
     card.innerHTML = `
       <video controls><source src="${videoFile.link}" type="video/mp4"></video>
       <div class="image-info">
         <p>🎬 ${video.user?.name||'Unknown'}</p>
         <p>Video</p>
-        <p>👁️ 0 views</p>
+        <p>👁️ <span id="${viewId}">0</span> views</p>
       </div>
       <div class="card-actions">
         <button onclick="downloadFile('${videoFile.link}')">⬇️ Download</button>
         <button onclick="toggleLike(this)">❤️ Like</button>
       </div>`;
+    card.querySelector("video").addEventListener("play", ()=>{
+      handleView(video.id, document.getElementById(viewId));
+    });
     imageResults.appendChild(card);
   });
 }
@@ -82,17 +101,21 @@ function renderGiphy(gifs){
   gifs.forEach(gif=>{
     const card = document.createElement("div");
     card.classList.add("image-card");
+    const viewId = `views-${gif.id}`;
     card.innerHTML = `
       <img src="${gif.images.fixed_height.url}" alt="${gif.title}">
       <div class="image-info">
         <p>🎞️ ${gif.title}</p>
         <p>GIF</p>
-        <p>👁️ ${gif.views || 0} views</p>
+        <p>👁️ <span id="${viewId}">0</span> views</p>
       </div>
       <div class="card-actions">
         <button onclick="downloadFile('${gif.images.original.url}')">⬇️ Download</button>
         <button onclick="toggleLike(this)">❤️ Like</button>
       </div>`;
+    card.querySelector("img").addEventListener("click", ()=>{
+      handleView(gif.id, document.getElementById(viewId));
+    });
     imageResults.appendChild(card);
   });
 }
@@ -141,9 +164,9 @@ async function fetchResults(query, page=1){
   loading.style.display = 'none';
 }
 
-// ===== Dynamic Accurate Suggestions =====
+// ===== Suggestions =====
 searchInput.addEventListener("input", async ()=>{
-  if(isSearching) return; // stop suggestions during search
+  if(isSearching) return;
   const q = searchInput.value.trim();
   suggestionsBox.innerHTML='';
   if(!q) return;
@@ -160,7 +183,6 @@ searchInput.addEventListener("input", async ()=>{
   giphyRes.data.forEach(g=>{ if(g.title.toLowerCase().startsWith(q.toLowerCase())) suggestions.push(g.title); });
 
   const final = Array.from(new Set(suggestions)).slice(0,8);
-
   final.forEach(s=>{
     const div = document.createElement('div');
     div.textContent = s;
@@ -177,11 +199,11 @@ searchInput.addEventListener("input", async ()=>{
 searchBtn.addEventListener("click", ()=>{
   const q = searchInput.value.trim();
   if(q){
-    document.getElementById("aboutSection").style.display = "none"; // hide about
+    document.getElementById("aboutSection").style.display = "none";
     currentQuery = q;
     currentPage = 1;
     fetchResults(currentQuery,currentPage);
-    suggestionsBox.innerHTML=''; // hide suggestions
+    suggestionsBox.innerHTML='';
   }
 });
 
@@ -190,7 +212,14 @@ loadMoreBtn.addEventListener("click", ()=>{
   fetchResults(currentQuery,currentPage);
 });
 
-apiSelector.addEventListener("change", ()=>{ currentAPI = apiSelector.value; });
+// ✅ Auto search on source change
+apiSelector.addEventListener("change", ()=>{
+  currentAPI = apiSelector.value;
+  if(currentQuery.trim()){
+    currentPage = 1;
+    fetchResults(currentQuery, currentPage);
+  }
+});
 
 // ===== Dark/Light Mode Toggle =====
 darkModeToggle.addEventListener("click", ()=>{
