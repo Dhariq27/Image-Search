@@ -1,40 +1,52 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Search</title>
-    <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stariq</title>
+<link rel="stylesheet" href="style.css">
 </head>
-<body>
-    <div class="container">
-        <h1>🔍 Image Search</h1>
+<body class="light-mode">
 
-        <!-- Search box wrapper -->
-        <div class="search-box">
-            <input type="text" id="searchInput" placeholder="Search for images...">
-            <button id="searchBtn">Search</button>
-        </div>
+<div class="background"></div>
 
-        <!-- Dark Mode Toggle BELOW search bar -->
-        <button id="darkModeToggle">🌙 Dark Mode</button>
+<div class="container">
+  <h1>⭐Stariq⭐</h1>
 
-        <!-- Loading spinner -->
-        <div id="loading" style="display:none;"></div>
+  <!-- Search Box -->
+  <div class="search-box">
+    <input type="text" id="searchInput" placeholder="Search for images, videos, GIFs...">
+    <button id="searchBtn">Search</button>
+    <div id="suggestions" class="suggestions-box"></div>
+  </div>
 
-        <!-- Error / empty message -->
-        <div id="message"></div>
+  <!-- API Selector -->
+  <div class="api-select">
+    <label for="apiSelector">Choose Source:</label>
+    <select id="apiSelector">
+      <option value="all">All</option>
+      <option value="image">Images</option>
+      <option value="video">Videos</option>
+      <option value="gif">GIFs</option>
+    </select>
+  </div>
 
-        <!-- Suggestions -->
-        <div id="suggestions" class="suggestions"></div>
+  <!-- Dark Mode -->
+  <button id="darkModeToggle">🌙 Dark Mode</button>
 
-        <!-- Image results grid -->
-        <div id="imageResults" class="image-grid"></div>
+  <!-- Loading -->
+  <div id="loading" style="display:none;">⏳ Loading...</div>
 
-        <!-- Load More Button -->
-        <button id="loadMoreBtn" style="display:none;">Load More</button>
-    </div>
+  <!-- Error / message -->
+  <div id="message"></div>
 
-    <script src="react.js"></script>
+  <!-- Results Grid -->
+  <div id="imageResults" class="image-grid"></div>
+
+  <!-- Load More -->
+  <button id="loadMoreBtn" style="display:none;">Load More</button>
+</div>
+
+<script src="react.js"></script>
 </body>
 </html>

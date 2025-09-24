@@ -1,206 +1,208 @@
-// ===== Pixabay API Config =====
-const API_KEY = "52395454-0259d1d10ab488aa9ec1e33d1"; 
-const BASE_URL = "https://pixabay.com/api/";
+// ===== API Keys =====
+const PIXABAY_KEY = "52395454-0259d1d10ab488aa9ec1e33d1";
+const PEXELS_KEY = "tuKz0EscJCp7WvvG7BqF1AbFfk3q6GceSKzXHoGBfHUCuT7nPZKYPTFn";
+const GIPHY_KEY = "9kdp3qJixyCTGgMWoxH6wQnQZBMwOWn5";
 
+// ===== Base URLs =====
+const PIXABAY_URL = "https://pixabay.com/api/";
+const PEXELS_URL = "https://api.pexels.com/videos/search";
+const GIPHY_URL = "https://api.giphy.com/v1/gifs/search";
+
+// ===== State =====
 let currentPage = 1;
 let currentQuery = "";
+let currentAPI = "all";
+let isSearching = false; // to control suggestions
 
 // ===== DOM Elements =====
 const searchInput = document.getElementById("searchInput");
 const searchBtn = document.getElementById("searchBtn");
-const imageResults = document.getElementById("imageResults");
+const apiSelector = document.getElementById("apiSelector");
 const darkModeToggle = document.getElementById("darkModeToggle");
+const imageResults = document.getElementById("imageResults");
 const loading = document.getElementById("loading");
-const message = document.getElementById("message");
+const suggestionsBox = document.getElementById("suggestions");
 const loadMoreBtn = document.getElementById("loadMoreBtn");
-const suggestionsDiv = document.getElementById("suggestions");
 
-// ===== Fetch Images =====
-async function fetchImages(query, page = 1) {
-    showLoading(true);
-    message.textContent = "";
-
-    try {
-        const response = await fetch(
-            `${BASE_URL}?key=${API_KEY}&q=${encodeURIComponent(query)}&image_type=photo&pretty=true&per_page=12&page=${page}`
-        );
-        const data = await response.json();
-
-        if (page === 1) imageResults.innerHTML = "";
-
-        if (data.hits.length === 0) {
-            message.textContent = "🚫 No results found. Try another search!";
-            loadMoreBtn.style.display = "none";
-        } else {
-            renderImages(data.hits);
-            loadMoreBtn.style.display = data.totalHits > page * 12 ? "block" : "none";
-        }
-    } catch (error) {
-        message.textContent = "⚠️ Error fetching images. Please try again!";
-    }
-
-    showLoading(false);
+// ===== Fetch Functions =====
+async function fetchPixabay(query, page=1){
+  const res = await fetch(`${PIXABAY_URL}?key=${PIXABAY_KEY}&q=${encodeURIComponent(query)}&image_type=photo&per_page=8&page=${page}`);
+  return res.json();
+}
+async function fetchPexels(query, page=1){
+  const res = await fetch(`${PEXELS_URL}?query=${encodeURIComponent(query)}&per_page=4&page=${page}`, {headers:{Authorization:PEXELS_KEY}});
+  return res.json();
+}
+async function fetchGiphy(query, page=0){
+  const res = await fetch(`${GIPHY_URL}?api_key=${GIPHY_KEY}&q=${encodeURIComponent(query)}&limit=8&offset=${page*8}`);
+  return res.json();
 }
 
-// ===== Render Images in Cards =====
-function renderImages(images) {
-    images.forEach(img => {
-        const card = document.createElement("div");
-        card.classList.add("image-card");
-        card.style.animationDelay = `${imageResults.childElementCount * 0.10}s`;
+// ===== Render Functions =====
+function renderPixabay(images){
+  images.forEach(img=>{
+    const card = document.createElement("div"); 
+    card.classList.add("image-card");
+    card.innerHTML = `
+      <img src="${img.webformatURL}" alt="${img.tags}">
+      <div class="image-info">
+        <p>📷 ${img.user}</p>
+        <p>${img.tags}</p>
+        <p>👁️ ${img.views} views</p>
+      </div>
+      <div class="card-actions">
+        <button onclick="downloadFile('${img.largeImageURL}')">⬇️ Download</button>
+        <button onclick="toggleLike(this)">❤️ Like</button>
+      </div>`;
+    imageResults.appendChild(card);
+  });
+}
 
-        // Initialize localStorage counts if not present
-        if (!localStorage.getItem(`img_${img.id}_views`)) localStorage.setItem(`img_${img.id}_views`, 0);
-        if (!localStorage.getItem(`img_${img.id}_likes`)) localStorage.setItem(`img_${img.id}_likes`, 0);
-        if (!localStorage.getItem(`img_${img.id}_downloads`)) localStorage.setItem(`img_${img.id}_downloads`, 0);
+function renderPexels(videos){
+  videos.forEach(video=>{
+    const videoFile = video.video_files.find(v=>v.quality==='sd')||video.video_files[0];
+    const card = document.createElement("div");
+    card.classList.add("image-card");
+    card.innerHTML = `
+      <video controls><source src="${videoFile.link}" type="video/mp4"></video>
+      <div class="image-info">
+        <p>🎬 ${video.user?.name||'Unknown'}</p>
+        <p>Video</p>
+        <p>👁️ 0 views</p>
+      </div>
+      <div class="card-actions">
+        <button onclick="downloadFile('${videoFile.link}')">⬇️ Download</button>
+        <button onclick="toggleLike(this)">❤️ Like</button>
+      </div>`;
+    imageResults.appendChild(card);
+  });
+}
 
-        const views = localStorage.getItem(`img_${img.id}_views`);
-        const likes = localStorage.getItem(`img_${img.id}_likes`);
-        const downloads = localStorage.getItem(`img_${img.id}_downloads`);
+function renderGiphy(gifs){
+  gifs.forEach(gif=>{
+    const card = document.createElement("div");
+    card.classList.add("image-card");
+    card.innerHTML = `
+      <img src="${gif.images.fixed_height.url}" alt="${gif.title}">
+      <div class="image-info">
+        <p>🎞️ ${gif.title}</p>
+        <p>GIF</p>
+        <p>👁️ ${gif.views || 0} views</p>
+      </div>
+      <div class="card-actions">
+        <button onclick="downloadFile('${gif.images.original.url}')">⬇️ Download</button>
+        <button onclick="toggleLike(this)">❤️ Like</button>
+      </div>`;
+    imageResults.appendChild(card);
+  });
+}
 
-        const isLiked = localStorage.getItem(`img_${img.id}_liked`) === "true";
-
-        card.innerHTML = `
-            <img src="${img.webformatURL}" alt="${img.tags}">
-            <div class="image-info">
-                <p><strong>📷 ${img.user}</strong></p>
-                <p>❤️ <span class="likes-count">${likes}</span> | 👁️ <span class="views-count">${views}</span> | ⬇️ <span class="downloads-count">${downloads}</span></p>
-                <div style="margin-top:5px;">
-                    <button class="like-btn">${isLiked ? "👎 Unlike" : "👍 Like"}</button>
-                    <button class="download-btn">⬇️ Download</button>
-                </div>
-                <a href="${img.pageURL}" target="_blank">🔗 View Original</a>
-            </div>
-        `;
-
-        imageResults.appendChild(card);
-
-        // ===== Views (only once per session) =====
-        if (!sessionStorage.getItem(`viewed_${img.id}`)) {
-            let currentViews = parseInt(localStorage.getItem(`img_${img.id}_views`));
-            currentViews++;
-            localStorage.setItem(`img_${img.id}_views`, currentViews);
-            card.querySelector('.views-count').textContent = currentViews;
-            sessionStorage.setItem(`viewed_${img.id}`, "true");
-        }
-
-        // ===== Like / Unlike button =====
-        const likeBtn = card.querySelector('.like-btn');
-        likeBtn.addEventListener('click', () => {
-            let currentLikes = parseInt(localStorage.getItem(`img_${img.id}_likes`));
-            let liked = localStorage.getItem(`img_${img.id}_liked`) === "true";
-
-            if (liked) {
-                // Unlike
-                currentLikes = Math.max(0, currentLikes - 1);
-                localStorage.setItem(`img_${img.id}_likes`, currentLikes);
-                localStorage.setItem(`img_${img.id}_liked`, "false");
-                likeBtn.textContent = "👍 Like";
-            } else {
-                // Like
-                currentLikes++;
-                localStorage.setItem(`img_${img.id}_likes`, currentLikes);
-                localStorage.setItem(`img_${img.id}_liked`, "true");
-                likeBtn.textContent = "👎 Unlike";
-            }
-            card.querySelector('.likes-count').textContent = currentLikes;
-        });
-
-    
-       // ===== Increment Views when image is clicked (only once per user) =====
-        card.querySelector('img').addEventListener('click', () => {
-        // Check if this image was already viewed
-        const viewedKey = `img_${img.id}_viewed`;
-        if (!localStorage.getItem(viewedKey)) {
-        // First time view for this user
-        let currentViews = parseInt(localStorage.getItem(`img_${img.id}_views`)) || 0;
-        currentViews++;
-        localStorage.setItem(`img_${img.id}_views`, currentViews);
-        card.querySelector('.views-count').textContent = currentViews;
-
-        // Mark as viewed
-        localStorage.setItem(viewedKey, "true");
-        }
-
-        // Open original image in new tab
-        window.open(img.pageURL, "_blank");
-        });
-
-
+// ===== Utility Functions =====
+function downloadFile(url){
+  fetch(url)
+    .then(resp => resp.blob())
+    .then(blob => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = "download";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     });
 }
 
-// ===== Show/Hide Loading =====
-function showLoading(isLoading) {
-    loading.style.display = isLoading ? "block" : "none";
+function toggleLike(btn){
+  if(btn.textContent.includes('Like')){
+    btn.textContent = '❤️ Unlike';
+  } else {
+    btn.textContent = '❤️ Like';
+  }
 }
 
-// ===== Event Listeners =====
-searchBtn.addEventListener("click", () => {
-    const query = searchInput.value.trim();
-    if (query) {
-        currentQuery = query;
-        currentPage = 1;
-        fetchImages(currentQuery, currentPage);
-        suggestionsDiv.style.display = "none"; // ✅ Hides suggestions after search
+// ===== Main Fetch =====
+async function fetchResults(query, page=1){
+  loading.style.display = 'block';
+  if(page===1) imageResults.innerHTML='';
+  try {
+    if(currentAPI==='image'||currentAPI==='all'){
+      const data = await fetchPixabay(query,page);
+      renderPixabay(data.hits);
     }
+    if(currentAPI==='video'||currentAPI==='all'){
+      const data = await fetchPexels(query,page);
+      renderPexels(data.videos);
+    }
+    if(currentAPI==='gif'||currentAPI==='all'){
+      const data = await fetchGiphy(query,page-1);
+      renderGiphy(data.data);
+    }
+    loadMoreBtn.style.display="block";
+  } catch(err){ console.error(err); }
+  loading.style.display = 'none';
+}
+
+// ===== Dynamic Accurate Suggestions =====
+searchInput.addEventListener("input", async ()=>{
+  if(isSearching) return; // stop suggestions during search
+  const q = searchInput.value.trim();
+  suggestionsBox.innerHTML='';
+  if(!q) return;
+
+  const [pixRes, pexRes, giphyRes] = await Promise.all([
+    fetch(`${PIXABAY_URL}?key=${PIXABAY_KEY}&q=${encodeURIComponent(q)}&per_page=3`).then(r=>r.json()),
+    fetch(`${PEXELS_URL}?query=${encodeURIComponent(q)}&per_page=3`,{headers:{Authorization:PEXELS_KEY}}).then(r=>r.json()),
+    fetch(`${GIPHY_URL}?api_key=${GIPHY_KEY}&q=${encodeURIComponent(q)}&limit=3`).then(r=>r.json())
+  ]);
+
+  const suggestions = [];
+  pixRes.hits.forEach(i=>i.tags.split(',').forEach(tag=>{ if(tag.toLowerCase().startsWith(q.toLowerCase())) suggestions.push(tag); }));
+  pexRes.videos.forEach(v=>{ if(v.user?.name?.toLowerCase().startsWith(q.toLowerCase())) suggestions.push(v.user.name); });
+  giphyRes.data.forEach(g=>{ if(g.title.toLowerCase().startsWith(q.toLowerCase())) suggestions.push(g.title); });
+
+  const final = Array.from(new Set(suggestions)).slice(0,8);
+
+  final.forEach(s=>{
+    const div = document.createElement('div');
+    div.textContent = s;
+    div.onclick = ()=>{
+      searchInput.value = s;
+      suggestionsBox.innerHTML='';
+      searchBtn.click();
+    };
+    suggestionsBox.appendChild(div);
+  });
 });
 
-loadMoreBtn.addEventListener("click", () => {
-    currentPage++;
-    fetchImages(currentQuery, currentPage);
+// ===== Events =====
+searchBtn.addEventListener("click", ()=>{
+  const q = searchInput.value.trim();
+  if(q){
+    isSearching = true; // disable suggestions during search
+    currentQuery = q;
+    currentPage = 1;
+    fetchResults(currentQuery,currentPage).then(()=>{ isSearching=false; });
+    suggestionsBox.innerHTML=''; // hide suggestions immediately
+  }
 });
 
-// ===== Dark Mode Toggle =====
-darkModeToggle.addEventListener("click", () => {
-    document.body.classList.toggle("dark-mode");
-    darkModeToggle.textContent =
-        document.body.classList.contains("dark-mode") ? "☀️ Light Mode" : "🌙 Dark Mode";
+loadMoreBtn.addEventListener("click", ()=>{
+  currentPage++;
+  fetchResults(currentQuery,currentPage);
 });
 
-// ===== Dynamic Suggestions =====
-searchInput.addEventListener("input", async () => {
-    const query = searchInput.value.toLowerCase().trim();
-    suggestionsDiv.innerHTML = "";
+apiSelector.addEventListener("change", ()=>{ currentAPI = apiSelector.value; });
 
-    if (!query) {
-        suggestionsDiv.style.display = "none";
-        return;
-    }
-
-    try {
-        const response = await fetch(
-            `${BASE_URL}?key=${API_KEY}&q=${encodeURIComponent(query)}&per_page=20`
-        );
-        const data = await response.json();
-
-        const uniqueSuggestions = [...new Set(
-            data.hits
-                .flatMap(item => item.tags.split(","))
-                .map(tag => tag.trim())
-                .filter(tag => tag.toLowerCase().startsWith(query))
-        )].slice(0, 4);
-
-        if (uniqueSuggestions.length > 0) {
-            uniqueSuggestions.forEach(word => {
-                const div = document.createElement("div");
-                div.textContent = word;
-                div.classList.add("suggestion-item");
-                div.addEventListener("click", () => {
-                    searchInput.value = word;
-                    suggestionsDiv.style.display = "none";
-                    currentQuery = word;
-                    currentPage = 1;
-                    fetchImages(currentQuery, currentPage);
-                });
-                suggestionsDiv.appendChild(div);
-            });
-            suggestionsDiv.style.display = "block";
-        } else {
-            suggestionsDiv.style.display = "none";
-        }
-    } catch (error) {
-        console.error("Suggestion error:", error);
-        suggestionsDiv.style.display = "none";
-    }
+// ===== Dark/Light Mode Toggle =====
+darkModeToggle.addEventListener("click", ()=>{
+  const body = document.body;
+  const bg = document.querySelector('.background');
+  if(body.classList.contains('dark-mode')){
+    body.classList.remove('dark-mode'); body.classList.add('light-mode');
+    darkModeToggle.textContent="🌙 Dark Mode";
+    bg.style.background='linear-gradient(-45deg, #a18cd1, #fbc2eb, #fad0c4, #ffd1ff)';
+  } else {
+    body.classList.remove('light-mode'); body.classList.add('dark-mode');
+    darkModeToggle.textContent="☀️ Light Mode";
+    bg.style.background='linear-gradient(-45deg, #0f2027, #203a43, #2c5364, #1f1f1f)';
+  }
 });
